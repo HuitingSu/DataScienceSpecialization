@@ -1,0 +1,125 @@
+---
+title: "Regression Quiz 4"
+author: "Huiting Su"
+output: html_document
+---
+```{r, message=FALSE, warning=FALSE}
+library(caret)
+library(AppliedPredictiveModeling)
+library(dplyr)
+```
+
+###1. 
+Create non-overlapping training and test sets with about 50% of the observations assigned to each.
+```{r, message=FALSE, warning=FALSE}
+library(AppliedPredictiveModeling)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+trainIndex <- createDataPartition(diagnosis, p = 0.50,list=FALSE)
+training <- adData[trainIndex,]
+testing <- adData[-trainIndex,]
+```
+
+###2.
+Make a plot of the outcome (CompressiveStrength) versus the index of the samples. Color by each of the variables in the data set (you may find the cut2() function in the Hmisc package useful for turning continuous covariates into factors). What do you notice in these plots?
+
+```{r}
+data(concrete)
+set.seed(1000)
+Index <- 1:1030
+mixtures <- cbind(Index, mixtures)
+inTrain = createDataPartition(mixtures$CompressiveStrength, p = 3/4)[[1]]
+training = mixtures[inTrain,]
+testing = mixtures[-inTrain,]
+```
+
+```{r}
+names <- colnames(mixtures)[-9]
+qplot(Index, CompressiveStrength, colour=Cement, data=mixtures)
+qplot(Index, CompressiveStrength, colour=BlastFurnaceSlag, data=mixtures)
+qplot(Index, CompressiveStrength, colour=FlyAsh, data=mixtures)
+qplot(Index, CompressiveStrength, colour=Water, data=mixtures)
+qplot(Index, CompressiveStrength, colour=Superplasticizer, data=mixtures)
+qplot(Index, CompressiveStrength, colour=CoarseAggregate, data=mixtures)
+qplot(Index, CompressiveStrength, colour=FineAggregate, data=mixtures)
+qplot(Index, CompressiveStrength, colour=Age, data=mixtures)
+```
+
+There is a non-random pattern in the plot of the outcome versus index that does not appear to be perfectly explained by any predictor suggesting a variable may be missing.
+
+###3.
+Make a histogram and confirm the SuperPlasticizer variable is skewed. Normally you might use the log transform to try to make the data more symmetric. Why would that be a poor choice for this variable?
+```{r}
+library(AppliedPredictiveModeling)
+data(concrete)
+library(caret)
+set.seed(1000)
+inTrain = createDataPartition(mixtures$CompressiveStrength, p = 3/4)[[1]]
+training = mixtures[ inTrain,]
+testing = mixtures[-inTrain,]
+```
+
+```{r}
+qplot(Superplasticizer, data=mixtures, geom= "histogram")
+qplot(log(Superplasticizer+1), data=mixtures, geom= "histogram")
+```
+There are a large number of values that are the same and even if you took the log(SuperPlasticizer + 1) they would still all be identical so the distribution would not be symmetric.
+
+###4. 
+Find all the predictor variables in the training set that begin with IL. Perform principal components on these variables with the preProcess() function from the caret package. Calculate the number of principal components needed to capture 90% of the variance. How many are there?
+```{r}
+library(caret)
+library(AppliedPredictiveModeling)
+set.seed(3433)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+```
+
+```{r}
+var_IL <- grep("^[Ii][Ll].*", names(training))
+training <- training[, c(1,var_IL)]
+testing <- testing[, c(1,var_IL)]
+```
+
+```{r}
+preProc <- preProcess(training[,-1], method="pca", thresh=0.9)
+colnames(preProc$rotation)
+```
+###5. 
+Create a training data set consisting of only the predictors with variable names beginning with IL and the diagnosis. Build two predictive models, one using the predictors as they are and one using PCA with principal components explaining 80% of the variance in the predictors. Use method="glm" in the train function.
+
+What is the accuracy of each method in the test set? Which is more accurate?
+```{r}
+set.seed(3433)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+var_IL <- grep("^[Ii][Ll].*", names(training))
+training <- training[, c(1,var_IL)]
+testing <- testing[, c(1,var_IL)]
+```
+
+
+```{r}
+preProc <- preProcess(training[,-1], method="pca", thresh=0.8)
+trainPC <- predict(preProc,training[,-1]) #just get PC
+testPC <- predict(preProc,testing[,-1]) 
+PCFit <- train(y=training$diagnosis,x=trainPC, method="glm")
+confusionMatrix(testing$diagnosis, predict(PCFit,testPC))
+```    
+
+```{r}    
+ModelFit <- train(diagnosis~., method="glm", data=training)
+confusionMatrix(testing[,1],predict(ModelFit,testing[,-1]))
+```
+
+
+
+
+
+
