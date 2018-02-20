@@ -1,0 +1,77 @@
+---
+title: "Analysis of cars transmission affect on MPG"
+author: "Huiting Su"
+date: "January 25, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+##Executive Summary
+In this report, mtcars data set is analyzed to explore how miles per gallon (MPG) is affected by transmission. The report specifically focus on whether automatic or manual transmission is better for MPG, and the MPG difference between automatic and manual transmissions is quantified.
+
+The report shows manual transmission has an MPG 2.94 greater than automatic transmission.
+
+##Exploratory Data Analysis
+```{r,message=FALSE,echo=FALSE}
+library(ggplot2)
+library(magrittr)
+library(gridExtra)
+```
+First take a glimps at the data set of cars.
+```{r cars}
+df <- mtcars
+df$am <- factor(df$am, labels=c("auto","manual"))
+head(df,3)
+```
+
+From a boxplot of mpg grouped by am (shown in appendix), auto transmission cars seem to have lower mpg. Run a two-sample t-test to verify whether the mpg is significantly lower than manual transmission cars. The alternative is "auto transmission cars has lower mean than manual cars".
+```{r}
+ttest <- t.test(df$mpg[df$am=="auto"], df$mpg[df$am=="manual"],alternative = "less")
+ttest$p.value
+```
+The p-value is 0.0006868, which means the mpg of auto transmission cars is significantly lower than that of manual transmission cars.
+
+##Simple Linear Regression
+```{r}
+mdl1 <- lm(mpg~am, df)
+summary(mdl1)$coef
+cat("R-squared: " , summary(mdl1)$r.squared)
+```
+As transmission is considered as factor and intercept is not included, the mean MPG of cars with auto transmissions is 17.147, and that of cars with manual transmissions is 7.245 more than auto. The $R^2$ is only 0.3598, which means the model only explains 36% of the variance.  
+
+Then run a regression including all other variables. Moreover, explore other variables with the pair lot (in Appendix). We can see that we may also want to include "qsec" and "wt" in our model.
+```{r}
+mdl <- lm(mpg~., df)
+summary(mdl)$coef
+```
+
+##Nested Model Test
+```{r}
+mdl2 <- update(mdl1, mpg ~ am + qsec)
+mdl3 <- update(mdl2, mpg ~ am + qsec + wt)
+anova(mdl1, mdl2, mdl3)
+```
+These three regressors are all significant. Check the residual of Model 3 (plot shown in Appendix), and they are all normally distributed and homoskedastic. 
+```{r}
+summary(mdl3)$coef
+cat("R-squared: " , summary(mdl3)$r.squared)
+```
+Thus, I select Model 3, and it explains 85% of the variance. Including other regressors influences the coefficient of "am". Cars with manual transmission is 2.94 higher in MPG than cars with auto transmission. 
+
+##Appendix
+```{r fig.width=4, fig.height=3}
+g <- ggplot(df, aes(x=am,y=mpg))
+g+geom_boxplot() + xlab("Transmission") + ylab("Miles/(US) gallon") + 
+    ggtitle("MPG by Auto and Manual Transmission")
+```
+
+Pair plot of regressors.
+```{r}
+pairs(mpg ~ ., data = mtcars)
+```
+
+Residual plot of Model 3.
+```{r}
+par(mfrow=c(2,2))
+plot(mdl3)
+```
