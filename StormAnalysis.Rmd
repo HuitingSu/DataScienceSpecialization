@@ -1,0 +1,107 @@
+---
+title: "Storm Data Analysis"
+Synopsis: Immediately after the title, there should be a synopsis which describes and summarizes your analysis in at most 10 complete sentences.
+author: "Huiting Su"
+date: "Nov 27, 2017"
+output: html_document
+---
+
+##1. Synopsis
+This analysis is a project in the Coursera Reproducible Research course, part of the Data Science Specialization. The goal is to explore the NOAA Storm Database and explore the severe weather events on both population health and economy.
+
+The database covers the time period between 1950 and November 2011. The analysis aims to investigate which different types of sever weather events are most harmful on the populations health in respect of general injuries and fatalities. Further the economic consequences are analyzed by exploring the financial damage done to both general property and crops.
+
+##2. Data Processing
+The data can be downloaded from the course website: [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2). Documentation of the database is available here:
+
+National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+First libarary the packages needed in our analysis.
+```{r}
+library(plyr)
+library(ggplot2)
+library(magrittr)
+library(gridExtra)
+```
+### Load the data. 
+```{r readData, cache=TRUE}
+StormData <- read.csv("StormData.csv.bz2")
+```
+
+
+
+
+### The analysis is focused on the population health and economic consequences, so the related columns are FATALITIES, INJURIES, PROPDMG, PROPDMFEXP, CROPDMG, CROPDMGEXP. 
+```{r, cache=TRUE}
+StormClean <- StormData[, c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
+```
+
+### 2.1 Population Health
+The fatalaties and injuries are summarized with respect to the event types. Then they are sorted decreasingly.
+```{r, cache=TRUE}
+TotalFatalities <- aggregate(FATALITIES ~ EVTYPE, StormClean, sum) %>% arrange(desc(FATALITIES))
+TotalInjuries <- aggregate(INJURIES ~ EVTYPE, StormClean, sum) %>% arrange(desc(INJURIES))
+```
+
+### 2.2 Economic Consequences
+According to NATIONAL WEATHER SERVICE INSTRUCTION, the exponents are stored in a seperated column,  "K" for thousands, "M" for millions, and "B" for billions. Take a glimps at different values in "PROPDMGEXP" and "CROPDMGEXP".
+```{r, cache=TRUE}
+unique(StormClean$PROPDMGEXP)
+unique(StormClean$CROPDMGEXP)
+```
+In order to get the numeric value of the damage, we need to transfer the exponent to numeric value first. Build a function to transfer the exponents according to the levels obtained in the last step.
+```{r, cache=TRUE}
+GetExpValue <- function(x)
+{
+    if(x=='h' || x=='H')
+        return(2)
+    else if(x=='k' || x=='K')
+        return(3)
+    else if(x=='m' || x=='M')
+        return(6)
+    else if(x=='B')
+        return(9)
+    if(!is.na(as.numeric(x))) #if x is character, as.numeric(x) returns NA
+        return(as.numeric(x))
+    else return(0)
+}
+```
+
+Then calculate the real damage value.
+```{r, cache=TRUE}
+PropExpValue <- sapply(StormClean$PROPDMGEXP, FUN = GetExpValue)
+CropExpValue <- sapply(StormClean$CROPDMGEXP, FUN = GetExpValue)
+StormClean$PropDmgVal <- StormClean$PROPDMG * (10 ** PropExpValue)
+StormClean$CropDmgVal <- StormClean$CROPDMG * (10 ** CropExpValue)
+```
+
+The Property damage and crop damage value are summarized with respect to the event types. Then they are sorted decreasingly.
+```{r,cache=TRUE}
+PropDmgSorted <- aggregate(PropDmgVal ~ EVTYPE, StormClean, sum) %>% arrange(desc(PropDmgVal))
+CropDmgSorted <- aggregate(CropDmgVal ~ EVTYPE, StormClean, sum) %>% arrange(desc(CropDmgVal))
+```
+
+
+##3. Results
+List the top 10 events which cause the most severe population fatality and injury respectively, then show the bar chart of the top 10 events. Tornado is the most harmful event with respect to population health, as it has the highest number of both fatality and injury, which are much higher than other events.Excessive Heat also has severe impact on population health. 
+```{r}
+head(TotalFatalities,10)
+head(TotalInjuries,10)
+
+g1 <- ggplot(TotalFatalities[1:10,], aes(reorder(EVTYPE, FATALITIES),FATALITIES)) + coord_flip() + geom_col() + xlab("Entity Type") + ylab("Total Fatalities") + ggtitle("Top 10 Events of Population Health Impact")
+# Event type is ordered by name, so need to reorder it according to FATALITIES
+
+g2 <- ggplot(TotalInjuries[1:10,], aes(reorder(EVTYPE, INJURIES),INJURIES)) + coord_flip() + geom_col() + xlab("Entity Type") + ylab("Total Injuries") 
+grid.arrange(g1, g2, ncol=1)
+```
+
+Also list top 10 events which has most severe economy consquences, and show the bar plot. Flash FLood has the most property damage, which is much more than any other event. Drought has the most crop damage.
+```{r}
+head(PropDmgSorted,10)
+head(TotalInjuries,10)
+g3 <- ggplot(PropDmgSorted[1:10,], aes(reorder(EVTYPE, PropDmgVal),PropDmgVal)) + coord_flip() + geom_col() + xlab("Entity Type") + ylab("Total Property Damage ($)") + ggtitle("Top 10 Events of Economy Consequence")
+g4 <- ggplot(CropDmgSorted[1:10,], aes(reorder(EVTYPE, CropDmgVal),CropDmgVal)) + coord_flip() + geom_col() + xlab("Entity Type") + ylab("Total Crop Damage ($)") 
+grid.arrange(g3, g4, ncol=1)
+```
+

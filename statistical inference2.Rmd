@@ -1,0 +1,72 @@
+---
+title: "Statistical Inference -- ToothGrowth Data"
+author: "Huiting Su"
+output:
+  pdf_document: default
+  html_document: default
+---
+##Overview
+This project aims to analyze the ToothGrowth dataset. According to the help document, ToothGrowth is a data frame with 60 observations on 3 variables. "len" is Tooth length, which is the response; "supp" is supplement type/delivery method (VC or OJ); "dose" is in milligrams/day, which has 3 levels (0.5, 1, and 2 mg/day). This project mainly compares tooth growth by supplement type and dose. 
+
+##Load data and exploratory data analysis
+First load the data set and library the package we want to use. Then take a glimps at the data.
+```{r, message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(datasets)
+data("ToothGrowth")
+```
+```{r}
+head(ToothGrowth)
+summary(ToothGrowth)
+```
+Dose has 3 levels, but it is stored as numeric format. We need to transfer it to factor.
+```{r}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+```
+
+Show a scatter plot of Tooth Length vs Dose Amount, when different supplement type is shown by different color. It seems there is a trend that higher dose amount result in higher tooth length.
+```{r,fig.width=4,fig.height=3}
+g <- ggplot(ToothGrowth, aes(dose,len))+geom_point(aes(color=supp))
+g +ggtitle("Tooth Length vs Dose Amount") + xlab("Dose Amount") + ylab("Tooth Length") 
+```
+
+##Inferential Analysis
+Show a boxplot of Tooth Length vs Dose Amount by Supplement Type. It seems tooth length is higher when dose amount is higher for both delivery method.
+```{r,fig.width=4,fig.height=3}
+g <- ggplot(ToothGrowth, aes(dose,len))+ geom_boxplot(aes(fill=dose))
+g  + facet_grid(.~supp) + xlab("Dose Amount") + ylab("Tooth Length") +
+    ggtitle("Tooth Length vs Dose Amount by Supplement Type")
+```
+Since we already see the trend, perform two sample t-test for each two group to proof it. $H_0$: there is no significant difference of tooth length. $H_1$: there is significant difference of tooth length. The type I error we want to achieve is less than $\alpha=0.05$. 
+```{r}
+p1<-t.test(len~dose,data=filter(ToothGrowth, supp=="OJ"& (dose=="0.5" | dose=="1")))$p.value
+p2<-t.test(len~dose,data=filter(ToothGrowth, supp=="OJ"& (dose=="1" | dose=="2")))$p.value
+p3<-t.test(len~dose,data=filter(ToothGrowth, supp=="VC"& (dose=="0.5" | dose=="1")))$p.value
+p4<-t.test(len~dose,data=filter(ToothGrowth, supp=="VC"& (dose=="1" | dose=="2")))$p.value
+print(c(p1,p2,p3,p4))
+```
+All p-values are less than $\alpha$, which means that dose amount has positive effect to tooth length, no matter which delivery method is used. 
+
+Similarly, show a boxplot of Tooth Length vs Supplement Type by Dose Amount. 
+```{r, fig.width=4,fig.height=3}
+g <- ggplot(ToothGrowth, aes(supp,len))+ geom_boxplot(aes(fill=supp))
+g  + facet_grid(.~dose) + xlab("Supplement Type") + ylab("Tooth Length") + 
+    ggtitle("Tooth Length vs Supplement Type by Dose Amount")
+```
+
+
+It seems that supplement type does not influence tooth length when dose amount is 2 mg/day. We need perform further test. $H_0$: there is no significant difference of tooth length. $H_1$: there is significant difference of tooth length.
+```{r}
+p1<-t.test(len~supp,data=filter(ToothGrowth, dose=="0.5"))$p.value
+p2<-t.test(len~supp,data=filter(ToothGrowth, dose=="1"))$p.value
+p3<-t.test(len~supp,data=filter(ToothGrowth, dose=="2"))$p.value
+print(c(p1,p2,p3))
+```
+According to the p-values, the difference of effect between two supplement types is not significant when dose amount is 2 mg/day. However, when dose amount is relatively low (0.5 or 1 mg/day), Orange Juice results in higher tooth length than VC.
+
+## Conclusions
+1. Dose amount has positive effect to tooth length, no matter which delivery method is used.\\
+2. The difference of effect between two supplement types is not significant when dose amount is 2 mg/day.\\
+3. When dose amount is relatively low (0.5 or 1 mg/day), Orange Juice results in higher tooth length than VC.
+
